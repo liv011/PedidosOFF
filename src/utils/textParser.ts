@@ -10,13 +10,67 @@ const CAR_BRANDS = [
 export function parseProductText(text: string): ProductData[] {
   const products: ProductData[] = [];
   
-  // Split by sections that start with category headers or "Dados do produto"
-  const sections = text.split(/(?=(?:Hotel|Ingressos|Casas|Carros|Dados do produto))/g).filter(s => s.trim());
+  // Split by sections that start with category headers
+  const sections = text.split(/(?=(?:Hotel|Ingressos|Casas|Carros)(?:\s|$))/g).filter(s => s.trim());
 
-  // Find the first adult name from the first product to use for all lines
+  // Find the first adult name from all sections to use as global client name
   let globalClientName = '';
 
-  sections.forEach((section, sectionIndex) => {
+  // First pass: find the first adult name
+  for (const section of sections) {
+    const lines = section.split('\n').map(l => l.trim()).filter(l => l);
+    const pessoas: { nome: string; nascimento: string; tipo: string }[] = [];
+    
+    let currentPerson: { nome: string; nascimento: string; tipo: string } | null = null;
+    
+    for (const line of lines) {
+      if (line.startsWith('Nome:')) {
+        // Save previous person if exists
+        if (currentPerson && currentPerson.nome) {
+          pessoas.push({ ...currentPerson });
+        }
+        // Start new person
+        currentPerson = {
+          nome: line.replace('Nome:', '').trim(),
+          nascimento: '',
+          tipo: ''
+        };
+      } else if (line.startsWith('Data de nascimento:') && currentPerson) {
+        currentPerson.nascimento = line.replace('Data de nascimento:', '').trim();
+      } else if ((line.startsWith('Tipo de pessoa:') || line.startsWith('Tipo:')) && currentPerson) {
+        currentPerson.tipo = line.replace('Tipo de pessoa:', '').replace('Tipo:', '').trim();
+      }
+    }
+    
+    // Don't forget the last person
+    if (currentPerson && currentPerson.nome) {
+      pessoas.push({ ...currentPerson });
+    }
+    
+    // Find first adult
+    const firstAdult = pessoas.find(p => p.tipo === 'Adulto');
+    if (firstAdult && !globalClientName) {
+      globalClientName = firstAdult.nome;
+      break; // Found the first adult, stop searching
+    }
+  }
+
+  // If no adult found, use the first person found
+  if (!globalClientName) {
+    for (const section of sections) {
+      const lines = section.split('\n').map(l => l.trim()).filter(l => l);
+      for (const line of lines) {
+        if (line.startsWith('Nome:')) {
+          globalClientName = line.replace('Nome:', '').trim();
+          break;
+        }
+      }
+      if (globalClientName) break;
+    }
+  }
+
+  // Second pass: process each section
+  sections.forEach((section) => {
     const lines = section.split('\n').map(l => l.trim()).filter(l => l);
     
     let produto = '';
@@ -30,15 +84,15 @@ export function parseProductText(text: string): ProductData[] {
     let valorNet = ''; // For hotels
     let sectionCategory = ''; // Hotel, Ingressos, etc.
     
-    const pessoas: { nome: string; nascimento: string; tipo: string }[] = [];
     let quantidadeAdulto = 0;
     let quantidadeCrianca = 0;
     let quantidadeTotal = 0;
     let quantidadeQuartos = 0;
 
     // Detect section category from first line
-    if (lines[0] && ['Hotel', 'Ingressos', 'Casas', 'Carros'].includes(lines[0])) {
-      sectionCategory = lines[0];
+    const firstLine = lines[0];
+    if (firstLine && ['Hotel', 'Ingressos', 'Casas', 'Carros'].includes(firstLine)) {
+      sectionCategory = firstLine;
     }
 
     lines.forEach(line => {
@@ -60,19 +114,6 @@ export function parseProductText(text: string): ProductData[] {
         valorNetAdulto = formatNumber(line.replace('Valor net adulto:', '').replace('R$', '').replace('$', '').trim());
       } else if (line.startsWith('Valor net:')) {
         valorNet = formatNumber(line.replace('Valor net:', '').replace('R$', '').replace('$', '').trim());
-      } else if (line.startsWith('Nome:')) {
-        const nome = line.replace('Nome:', '').trim();
-        pessoas.push({ nome, nascimento: '', tipo: '' });
-      } else if (line.startsWith('Data de nascimento:')) {
-        const nascimento = line.replace('Data de nascimento:', '').trim();
-        if (pessoas.length > 0) {
-          pessoas[pessoas.length - 1].nascimento = nascimento;
-        }
-      } else if (line.startsWith('Tipo de pessoa:') || line.startsWith('Tipo:')) {
-        const tipo = line.replace('Tipo de pessoa:', '').replace('Tipo:', '').trim();
-        if (pessoas.length > 0) {
-          pessoas[pessoas.length - 1].tipo = tipo;
-        }
       } else if (line.startsWith('Categoria:')) {
         categoria = line.replace('Categoria:', '').trim();
       } else if (line.startsWith('Subcategoria:')) {
@@ -85,11 +126,6 @@ export function parseProductText(text: string): ProductData[] {
     });
 
     if (!produto) return; // Skip if no product found
-
-    // Set global client name from first product's first adult
-    if (sectionIndex === 0 && !globalClientName) {
-      globalClientName = pessoas.find(p => p.tipo === 'Adulto')?.nome || pessoas[0]?.nome || '';
-    }
 
     const quantidadeDias = parseInt(subcategoria) || 1;
 
@@ -120,8 +156,14 @@ export function parseProductText(text: string): ProductData[] {
     } else if (sectionCategory === 'Casas') {
       finalCategory = 'Casa';
     } else {
-      // Fallback to section category or original categoria
-      finalCategory = sectionCategory || categoria || 'Ingresso';
+      // Fallback: try to detect from product name
+      if (isHotel) {
+        finalCategory = 'Hotel';
+      } else if (isCarro) {
+        finalCategory = 'Carro';
+      } else {
+        finalCategory = 'Ingresso'; // Default fallback
+      }
     }
 
     if (isHotel) {
@@ -218,8 +260,18 @@ function formatDate(dateStr: string): string {
 function formatNumber(numberStr: string): string {
   if (!numberStr) return '';
   
-  // Replace dots with commas for decimal numbers
-  return numberStr.replace(/\./g, ',');
+  // Remove any currency symbols and extra spaces
+  let cleaned = numberStr.replace(/[R$\s]/g, '');
+  
+  // Replace dots with commas for decimal numbers (Brazilian format)
+  // Only replace the last dot if it's followed by exactly 2 digits (decimal separator)
+  const lastDotIndex = cleaned.lastIndexOf('.');
+  if (lastDotIndex !== -1 && cleaned.length - lastDotIndex === 3) {
+    // This is likely a decimal separator
+    cleaned = cleaned.substring(0, lastDotIndex) + ',' + cleaned.substring(lastDotIndex + 1);
+  }
+  
+  return cleaned;
 }
 
 export function getAgencyGroup(agency: string): string {
