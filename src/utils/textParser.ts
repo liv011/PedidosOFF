@@ -4,7 +4,8 @@ import { ProductData } from '../types';
 const CAR_BRANDS = [
   'TOYOTA', 'HONDA', 'FORD', 'CHEVROLET', 'NISSAN', 'HYUNDAI', 'KIA', 'VOLKSWAGEN',
   'BMW', 'MERCEDES', 'AUDI', 'LEXUS', 'MAZDA', 'SUBARU', 'JEEP', 'DODGE',
-  'CHRYSLER', 'BUICK', 'CADILLAC', 'INFINITI'
+  'CHRYSLER', 'BUICK', 'CADILLAC', 'INFINITI', 'FIAT', 'PEUGEOT', 'RENAULT',
+  'MITSUBISHI', 'SUZUKI', 'VOLVO', 'LAND ROVER', 'JAGUAR', 'PORSCHE'
 ];
 
 export function parseProductText(text: string): ProductData[] {
@@ -133,7 +134,7 @@ export function parseProductText(text: string): ProductData[] {
     const produtoUpper = produto.toUpperCase();
     const categoriaUpper = categoria.toUpperCase();
     
-    // Check if it's a car by brand detection or keywords
+    // Check if it's a car by brand detection or keywords - PRIORITY CHECK
     const isCarByBrand = CAR_BRANDS.some(brand => produtoUpper.includes(brand));
     const isCarByKeyword = produtoUpper.includes('CARRO') || produtoUpper.includes('CAR') || 
                           categoriaUpper.includes('CARRO') || categoriaUpper.includes('CAR');
@@ -145,13 +146,16 @@ export function parseProductText(text: string): ProductData[] {
                    produtoUpper.includes('INN') || produtoUpper.includes('SUITE') ||
                    categoriaUpper.includes('HOTEL');
 
-    // Determine final category for the "categoria" field based on section header
+    // Determine final category for the "categoria" field
     let finalCategory = '';
-    if (sectionCategory === 'Hotel' || isHotel) {
+    if (isCarro) {
+      // Car detection has priority - even if section says "Ingressos"
+      finalCategory = 'Carro';
+    } else if (sectionCategory === 'Hotel' || isHotel) {
       finalCategory = 'Hotel';
     } else if (sectionCategory === 'Ingressos') {
       finalCategory = 'Ingresso';
-    } else if (sectionCategory === 'Carros' || isCarro) {
+    } else if (sectionCategory === 'Carros') {
       finalCategory = 'Carro';
     } else if (sectionCategory === 'Casas') {
       finalCategory = 'Casa';
@@ -263,13 +267,8 @@ function formatNumber(numberStr: string): string {
   // Remove any currency symbols and extra spaces
   let cleaned = numberStr.replace(/[R$\s]/g, '');
   
-  // Replace dots with commas for decimal numbers (Brazilian format)
-  // Only replace the last dot if it's followed by exactly 2 digits (decimal separator)
-  const lastDotIndex = cleaned.lastIndexOf('.');
-  if (lastDotIndex !== -1 && cleaned.length - lastDotIndex === 3) {
-    // This is likely a decimal separator
-    cleaned = cleaned.substring(0, lastDotIndex) + ',' + cleaned.substring(lastDotIndex + 1);
-  }
+  // Convert all dots to commas (Brazilian number format)
+  cleaned = cleaned.replace(/\./g, ',');
   
   return cleaned;
 }
