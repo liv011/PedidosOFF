@@ -123,9 +123,9 @@ export function parseProductText(text: string): ProductData[] {
       } else if (line.startsWith('Subcategoria:')) {
         subcategoria = line.replace('Subcategoria:', '').trim();
       } else if (line.startsWith('Margem Atual JT:')) {
-        margemJT = formatNumberWithComma(line.replace('Margem Atual JT:', '').trim());
+        margemJT = formatNumberWithCommaAndPercent(line.replace('Margem Atual JT:', '').trim());
       } else if (line.startsWith('Margem Atual Agência:')) {
-        margemAG = formatNumberWithComma(line.replace('Margem Atual Agência:', '').trim());
+        margemAG = formatNumberWithCommaAndPercent(line.replace('Margem Atual Agência:', '').trim());
       }
     });
 
@@ -175,7 +175,7 @@ export function parseProductText(text: string): ProductData[] {
     }
 
     if (isHotel) {
-      // Hotel: always 1 person, always adult classification
+      // Hotel: always 1 person, always adult classification, QUANTITY ALWAYS 1
       products.push({
         produto,
         categoriaItem: categoria,
@@ -187,12 +187,12 @@ export function parseProductText(text: string): ProductData[] {
         margemJT,
         margemAG,
         classificacao: 'Adulto',
-        quantidade: 1,
+        quantidade: 1, // ALWAYS 1 for hotels
         categoria: finalCategory,
         valorNetAdulto: valorNet || valorNetAdulto
       });
     } else if (isCarro) {
-      // Car: product name repeated in category item, total quantity, always adult
+      // Car: product name repeated in category item, QUANTITY ALWAYS 1, always adult
       products.push({
         produto,
         categoriaItem: produto, // Product name repeated in category item
@@ -204,7 +204,7 @@ export function parseProductText(text: string): ProductData[] {
         margemJT,
         margemAG,
         classificacao: 'Adulto',
-        quantidade: quantidadeAdulto + quantidadeCrianca || quantidadeTotal || 1,
+        quantidade: 1, // ALWAYS 1 for cars
         categoria: finalCategory,
         valorNetAdulto
       });
@@ -241,7 +241,7 @@ export function parseProductText(text: string): ProductData[] {
           nomeCliente: globalClientName,
           margemJT,
           margemAG,
-          classificacao: 'Criança',
+          classificacao: 'Crianca', // Removed ç
           quantidade: quantidadeCrianca,
           categoria: finalCategory,
           valorNetAdulto: valorNetCrianca // Use child value for children
@@ -275,6 +275,19 @@ function formatNumberWithComma(numberStr: string): string {
   cleaned = cleaned.replace(/\./g, ',');
   
   return cleaned;
+}
+
+function formatNumberWithCommaAndPercent(numberStr: string): string {
+  if (!numberStr) return '';
+  
+  // Remove any currency symbols and extra spaces
+  let cleaned = numberStr.replace(/[R$\s]/g, '');
+  
+  // Convert all dots to commas (Brazilian number format)
+  cleaned = cleaned.replace(/\./g, ',');
+  
+  // Add % at the end
+  return cleaned + '%';
 }
 
 export function getAgencyGroup(agency: string): string {

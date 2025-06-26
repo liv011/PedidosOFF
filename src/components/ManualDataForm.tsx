@@ -151,7 +151,7 @@ export default function ManualDataForm({ data, onChange }: Props) {
             value={data.taxaPagamento}
             onChange={(e) => handleChange('taxaPagamento', e.target.value)}
             className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
-            placeholder="0,00"
+            placeholder="0,00%"
           />
         </div>
 
