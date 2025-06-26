@@ -92,12 +92,11 @@ export default function ManualDataForm({ data, onChange }: Props) {
             Valor da Venda
           </label>
           <input
-            type="number"
-            step="0.01"
+            type="text"
             value={data.valorVenda}
             onChange={(e) => handleChange('valorVenda', e.target.value)}
             className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
-            placeholder="0.00"
+            placeholder="0,00"
           />
         </div>
 
@@ -124,7 +123,7 @@ export default function ManualDataForm({ data, onChange }: Props) {
             className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
           >
             <option value="">Selecione...</option>
-            <option value="Cartão">Cartão</option>
+            <option value="Cartao">Cartao</option>
             <option value="Boleto">Boleto</option>
             <option value="Pix">Pix</option>
           </select>
@@ -148,12 +147,11 @@ export default function ManualDataForm({ data, onChange }: Props) {
             Taxa de Pagamento (%)
           </label>
           <input
-            type="number"
-            step="0.01"
+            type="text"
             value={data.taxaPagamento}
             onChange={(e) => handleChange('taxaPagamento', e.target.value)}
             className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
-            placeholder="0.00"
+            placeholder="0,00"
           />
         </div>
 
@@ -162,12 +160,11 @@ export default function ManualDataForm({ data, onChange }: Props) {
             Dólar do Site
           </label>
           <input
-            type="number"
-            step="0.0001"
+            type="text"
             value={data.dolarSite}
             onChange={(e) => handleChange('dolarSite', e.target.value)}
             className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white"
-            placeholder="0.0000"
+            placeholder="0,0000"
           />
         </div>
       </div>

@@ -82,6 +82,7 @@ export function parseProductText(text: string): ProductData[] {
     let margemJT = '';
     let margemAG = '';
     let valorNetAdulto = '';
+    let valorNetCrianca = '';
     let valorNet = ''; // For hotels
     let sectionCategory = ''; // Hotel, Ingressos, etc.
     
@@ -112,17 +113,19 @@ export function parseProductText(text: string): ProductData[] {
       } else if (line.startsWith('Quantidade de quartos:')) {
         quantidadeQuartos = parseInt(line.replace('Quantidade de quartos:', '').trim()) || 0;
       } else if (line.startsWith('Valor net adulto:')) {
-        valorNetAdulto = formatNumber(line.replace('Valor net adulto:', '').replace('R$', '').replace('$', '').trim());
+        valorNetAdulto = formatNumberWithComma(line.replace('Valor net adulto:', '').replace('R$', '').replace('$', '').trim());
+      } else if (line.startsWith('Valor net criança:')) {
+        valorNetCrianca = formatNumberWithComma(line.replace('Valor net criança:', '').replace('R$', '').replace('$', '').trim());
       } else if (line.startsWith('Valor net:')) {
-        valorNet = formatNumber(line.replace('Valor net:', '').replace('R$', '').replace('$', '').trim());
+        valorNet = formatNumberWithComma(line.replace('Valor net:', '').replace('R$', '').replace('$', '').trim());
       } else if (line.startsWith('Categoria:')) {
         categoria = line.replace('Categoria:', '').trim();
       } else if (line.startsWith('Subcategoria:')) {
         subcategoria = line.replace('Subcategoria:', '').trim();
       } else if (line.startsWith('Margem Atual JT:')) {
-        margemJT = formatNumber(line.replace('Margem Atual JT:', '').trim());
+        margemJT = formatNumberWithComma(line.replace('Margem Atual JT:', '').trim());
       } else if (line.startsWith('Margem Atual Agência:')) {
-        margemAG = formatNumber(line.replace('Margem Atual Agência:', '').trim());
+        margemAG = formatNumberWithComma(line.replace('Margem Atual Agência:', '').trim());
       }
     });
 
@@ -140,33 +143,34 @@ export function parseProductText(text: string): ProductData[] {
                           categoriaUpper.includes('CARRO') || categoriaUpper.includes('CAR');
     const isCarro = isCarByBrand || isCarByKeyword;
     
-    // Check if it's a hotel
-    const isHotel = sectionCategory === 'Hotel' || 
-                   produtoUpper.includes('HOTEL') || produtoUpper.includes('RESORT') || 
-                   produtoUpper.includes('INN') || produtoUpper.includes('SUITE') ||
-                   categoriaUpper.includes('HOTEL');
+    // Check if it's a hotel - EXCLUDE "Universal Orlando Resort" specifically
+    const isHotel = (sectionCategory === 'Hotel' || 
+                    produtoUpper.includes('HOTEL') || produtoUpper.includes('RESORT') || 
+                    produtoUpper.includes('INN') || produtoUpper.includes('SUITE') ||
+                    categoriaUpper.includes('HOTEL')) &&
+                    !produtoUpper.includes('UNIVERSAL ORLANDO RESORT'); // Exclude this specific case
 
-    // Determine final category for the "categoria" field
+    // Determine final category for the "categoria" field (PLURAL)
     let finalCategory = '';
     if (isCarro) {
       // Car detection has priority - even if section says "Ingressos"
-      finalCategory = 'Carro';
+      finalCategory = 'Carros';
     } else if (sectionCategory === 'Hotel' || isHotel) {
-      finalCategory = 'Hotel';
+      finalCategory = 'Hotéis';
     } else if (sectionCategory === 'Ingressos') {
-      finalCategory = 'Ingresso';
+      finalCategory = 'Ingressos';
     } else if (sectionCategory === 'Carros') {
-      finalCategory = 'Carro';
+      finalCategory = 'Carros';
     } else if (sectionCategory === 'Casas') {
-      finalCategory = 'Casa';
+      finalCategory = 'Casas';
     } else {
       // Fallback: try to detect from product name
       if (isHotel) {
-        finalCategory = 'Hotel';
+        finalCategory = 'Hotéis';
       } else if (isCarro) {
-        finalCategory = 'Carro';
+        finalCategory = 'Carros';
       } else {
-        finalCategory = 'Ingresso'; // Default fallback
+        finalCategory = 'Ingressos'; // Default fallback
       }
     }
 
@@ -240,7 +244,7 @@ export function parseProductText(text: string): ProductData[] {
           classificacao: 'Criança',
           quantidade: quantidadeCrianca,
           categoria: finalCategory,
-          valorNetAdulto: '' // Children don't have net value
+          valorNetAdulto: valorNetCrianca // Use child value for children
         });
       }
     }
@@ -261,7 +265,7 @@ function formatDate(dateStr: string): string {
   return dateStr;
 }
 
-function formatNumber(numberStr: string): string {
+function formatNumberWithComma(numberStr: string): string {
   if (!numberStr) return '';
   
   // Remove any currency symbols and extra spaces
