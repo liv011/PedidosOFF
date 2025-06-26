@@ -113,19 +113,19 @@ export function parseProductText(text: string): ProductData[] {
       } else if (line.startsWith('Quantidade de quartos:')) {
         quantidadeQuartos = parseInt(line.replace('Quantidade de quartos:', '').trim()) || 0;
       } else if (line.startsWith('Valor net adulto:')) {
-        valorNetAdulto = formatNumberWithComma(line.replace('Valor net adulto:', '').replace('R$', '').replace('$', '').trim());
+        valorNetAdulto = formatMonetaryValue(line.replace('Valor net adulto:', '').replace('R$', '').replace('$', '').trim());
       } else if (line.startsWith('Valor net criança:')) {
-        valorNetCrianca = formatNumberWithComma(line.replace('Valor net criança:', '').replace('R$', '').replace('$', '').trim());
+        valorNetCrianca = formatMonetaryValue(line.replace('Valor net criança:', '').replace('R$', '').replace('$', '').trim());
       } else if (line.startsWith('Valor net:')) {
-        valorNet = formatNumberWithComma(line.replace('Valor net:', '').replace('R$', '').replace('$', '').trim());
+        valorNet = formatMonetaryValue(line.replace('Valor net:', '').replace('R$', '').replace('$', '').trim());
       } else if (line.startsWith('Categoria:')) {
         categoria = line.replace('Categoria:', '').trim();
       } else if (line.startsWith('Subcategoria:')) {
         subcategoria = line.replace('Subcategoria:', '').trim();
       } else if (line.startsWith('Margem Atual JT:')) {
-        margemJT = formatNumberWithCommaAndPercent(line.replace('Margem Atual JT:', '').trim());
+        margemJT = formatPercentageValue(line.replace('Margem Atual JT:', '').trim());
       } else if (line.startsWith('Margem Atual Agência:')) {
-        margemAG = formatNumberWithCommaAndPercent(line.replace('Margem Atual Agência:', '').trim());
+        margemAG = formatPercentageValue(line.replace('Margem Atual Agência:', '').trim());
       }
     });
 
@@ -265,29 +265,73 @@ function formatDate(dateStr: string): string {
   return dateStr;
 }
 
-function formatNumberWithComma(numberStr: string): string {
+function formatMonetaryValue(numberStr: string): string {
   if (!numberStr) return '';
   
   // Remove any currency symbols and extra spaces
   let cleaned = numberStr.replace(/[R$\s]/g, '');
   
-  // Convert all dots to commas (Brazilian number format)
-  cleaned = cleaned.replace(/\./g, ',');
+  // If it's already in the correct format (has comma), just add thousand separators
+  if (cleaned.includes(',')) {
+    const parts = cleaned.split(',');
+    const integerPart = parts[0];
+    const decimalPart = parts[1] || '00';
+    
+    // Add thousand separators to integer part
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    return `${formattedInteger},${decimalPart.padEnd(2, '0').substring(0, 2)}`;
+  }
   
-  return cleaned;
+  // If it has dots as decimal separators, convert to comma
+  if (cleaned.includes('.')) {
+    // Check if it's a decimal (like 123.45) or thousands (like 1.234.56)
+    const dotCount = (cleaned.match(/\./g) || []).length;
+    
+    if (dotCount === 1) {
+      // Single dot - could be decimal
+      const parts = cleaned.split('.');
+      if (parts[1] && parts[1].length <= 2) {
+        // It's a decimal separator
+        const formattedInteger = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return `${formattedInteger},${parts[1].padEnd(2, '0')}`;
+      }
+    }
+    
+    // Multiple dots or single dot with more than 2 decimals - treat as thousands
+    const lastDotIndex = cleaned.lastIndexOf('.');
+    const integerPart = cleaned.substring(0, lastDotIndex).replace(/\./g, '');
+    const decimalPart = cleaned.substring(lastDotIndex + 1);
+    
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return `${formattedInteger},${decimalPart.padEnd(2, '0').substring(0, 2)}`;
+  }
+  
+  // No decimal separator - add ,00 and thousand separators
+  const formattedInteger = cleaned.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${formattedInteger},00`;
 }
 
-function formatNumberWithCommaAndPercent(numberStr: string): string {
+function formatPercentageValue(numberStr: string): string {
   if (!numberStr) return '';
   
-  // Remove any currency symbols and extra spaces
-  let cleaned = numberStr.replace(/[R$\s]/g, '');
+  // Remove any extra spaces and % if already present
+  let cleaned = numberStr.replace(/[%\s]/g, '');
   
-  // Convert all dots to commas (Brazilian number format)
+  // Convert dots to commas for decimal separator
   cleaned = cleaned.replace(/\./g, ',');
   
-  // Add % at the end
-  return cleaned + '%';
+  // If it has comma, ensure 2 decimal places
+  if (cleaned.includes(',')) {
+    const parts = cleaned.split(',');
+    const integerPart = parts[0];
+    const decimalPart = parts[1] || '00';
+    
+    return `${integerPart},${decimalPart.padEnd(2, '0').substring(0, 2)}%`;
+  }
+  
+  // No decimal separator - add ,00
+  return `${cleaned},00%`;
 }
 
 export function getAgencyGroup(agency: string): string {
